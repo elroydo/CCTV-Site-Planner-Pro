@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTV Site Planner Pro v5.1</title>
+    <style>
+        :root {
+            --apple-bg: #f2f2f7;
+            --apple-blue: #007aff;
+            --apple-blue-hover: #0063d1;
+            --apple-red: #ff3b30;
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --text-primary: #1c1c1e;
+            --text-secondary: #8e8e93;
+            --shadow: 0 4px 20px rgba(0,0,0,0.08);
+            --radius: 14px;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #e5e5ea;
+            color: var(--text-primary);
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: default;
+            outline: none;
+        }
+
+        /* UI Panels */
+        .panel {
+            position: absolute;
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: all 0.2s ease;
+            max-height: 85vh;
+        }
+
+        .panel-left { top: 20px; left: 20px; width: 240px; }
+        
+        .panel-right { 
+            top: 20px; 
+            right: 20px; 
+            width: 280px; 
+            display: none; 
+            flex-direction: column; 
+        }
+
+        /* Scrollable List */
+        .scroll-area {
+            overflow-y: auto;
+            padding-right: 4px;
+            max-height: 250px;
+        }
+        .scroll-area::-webkit-scrollbar { width: 4px; }
+        .scroll-area::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+
+        /* Typography */
+        h2 { margin: 0 0 6px 0; font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.5px; }
+        
+        label { font-size: 12px; color: var(--text-secondary); display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        
+        /* Controls */
+        button {
+            background: white;
+            border: 1px solid #d1d1d6;
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        button:hover { background: #f2f2f7; }
+        button:active { transform: scale(0.97); }
+        button:disabled { opacity: 0.5; cursor: default; }
+        
+        button.primary { background: var(--apple-blue); color: white; border: none; }
+        button.primary:hover { background: var(--apple-blue-hover); }
+        
+        button.danger { color: var(--apple-red); border-color: rgba(255, 59, 48, 0.3); }
+        button.danger:hover { background: #fff2f2; }
+
+        .toolbar-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .icon-btn { flex: 1; padding: 6px; }
+
+        /* Inputs */
+        input[type="text"], input[type="number"], select {
+            background: rgba(255,255,255,0.6);
+            border: 1px solid #d1d1d6;
+            border-radius: 7px;
+            padding: 5px 8px;
+            font-size: 13px;
+            color: var(--text-primary);
+            width: 100%;
+            box-sizing: border-box;
+        }
+        input:focus, select:focus { outline: none; border-color: var(--apple-blue); background: white; }
+
+        input[type="range"] { width: 100%; accent-color: var(--apple-blue); height: 4px; margin: 8px 0; cursor: pointer; }
+        
+        .input-group { display: flex; align-items: center; gap: 8px; }
+        .input-group input[type="range"] { flex: 1; }
+        .input-group input[type="number"] { width: 70px; text-align: right; }
+
+        .row { display: flex; gap: 8px; }
+        .full-width { width: 100%; }
+        hr { border: 0; border-top: 1px solid #e5e5e5; width: 100%; margin: 8px 0; }
+
+        /* Camera List Item */
+        .cam-item {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px; background: white; border-radius: 8px;
+            margin-bottom: 6px; border: 1px solid transparent;
+            cursor: pointer; transition: all 0.2s; font-size: 13px;
+        }
+        .cam-item:hover { background: #f9f9f9; }
+        .cam-item.selected {
+            border-color: rgba(0,0,0,0.06);
+            background: #f2f2f7;
+            box-shadow: none;
+        }
+        .cam-dot { width: 12px; height: 12px; border-radius: 50%; background: #ddd; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.2); flex-shrink: 0; }
+        
+        /* Inline Editable Name */
+        .cam-name-input {
+            border: 1px solid transparent;
+            background: transparent;
+            padding: 2px 4px;
+            font-size: 13px;
+            color: var(--text-primary);
+            width: 100%;
+            border-radius: 4px;
+        }
+        .cam-name-input:focus {
+            background: white;
+            border-color: var(--apple-blue);
+            outline: none;
+        }
+        .cam-name-input:hover {
+            border-color: #e5e5e5;
+        }
+
+        /* Status Toast */
+        #status-bar {
+            position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+            background: rgba(30, 30, 30, 0.85); backdrop-filter: blur(10px);
+            color: white; padding: 10px 20px; border-radius: 30px;
+            font-size: 13px; font-weight: 500; pointer-events: none;
+            opacity: 0; transition: opacity 0.3s; z-index: 100;
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas" tabindex="0"></canvas>
+
+    <input type="file" id="imageInput" accept="image/*" hidden>
+    <input type="file" id="configInput" accept="application/json" hidden>
+    
+    <div class="panel panel-left">
+
+
+        <h2>Map Tools</h2>
+        <button class="full-width" onclick="document.getElementById('imageInput').click()">Import Map</button>
+        <button id="btn-calibrate" class="full-width" onclick="app.startCalibration()">Set Scale</button>
+        
+        <hr>
+        <h2>Project</h2>
+        <div class="row">
+            <button class="full-width primary" onclick="app.saveProgress()">Save</button>
+            <button class="full-width" onclick="document.getElementById('configInput').click()">Load</button>
+        </div>
+        <button class="full-width" style="margin-top:8px" onclick="app.exportConfig()">Export Config</button>
+    </div>
+
+    <div class="panel panel-right" id="panel-right">
+        <h2>Cameras</h2>
+        <button class="primary full-width" onclick="app.addCamera()">+ New Camera</button>
+        
+        <div id="camera-list" class="scroll-area" style="margin-top: 10px; flex: 1; min-height: 100px;"></div>
+
+        <hr>
+
+        <div id="properties" style="display:none; flex-direction: column; gap: 10px;">
+            <h2>Settings</h2>
+            
+            <div>
+                <label>Name</label>
+                <input type="text" id="inp-name" oninput="app.updateName(this.value)" onchange="app.saveState()">
+            </div>
+
+            <div>
+                <label>Type</label>
+                <select id="inp-type" onchange="app.updateProp('type', this.value)">
+                    <option value="dome">Dome (Directional)</option>
+                    <option value="bullet">Bullet (Long Range)</option>
+                    <option value="fisheye">Fisheye (360°)</option>
+                </select>
+            </div>
+
+            <div>
+                <label>Rotation (°)</label>
+                <div class="input-group">
+                    <input type="range" id="rng-angle" min="0" max="360" oninput="app.updateProp('angle', this.value, true)" onchange="app.saveState()">
+                    <input type="number" id="num-angle" min="0" max="360" oninput="app.updateProp('angle', this.value, false)" onchange="app.saveState()">
+                </div>
+            </div>
+
+            <div>
+                <label>Field of View (°)</label>
+                <div class="input-group">
+                    <input type="range" id="rng-fov" min="10" max="360" oninput="app.updateProp('fov', this.value, true)" onchange="app.saveState()">
+                    <input type="number" id="num-fov" min="10" max="360" oninput="app.updateProp('fov', this.value, false)" onchange="app.saveState()">
+                </div>
+            </div>
+
+            <div>
+                <label>Range (Meters)</label>
+                <div class="input-group">
+                    <input type="range" id="rng-range" min="1" max="100" oninput="app.updateProp('range', this.value, true)" onchange="app.saveState()">
+                    <input type="number" id="num-range" min="1" max="500" oninput="app.updateProp('range', this.value, false)" onchange="app.saveState()">
+                </div>
+            </div>
+
+            <div class="row">
+                <button class="full-width" onclick="app.copyCamera()">Copy</button>
+                <button class="danger full-width" onclick="app.removeSelectedCamera()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="status-bar">Notification</div>
+
+    <script>
+        class App {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // State
+                this.cameras = [];
+                this.image = null;
+                this.mapName = "site-plan";
+                this.selectedId = null;
+                this.clipboard = null;
+                
+                // Color Definitions
+                this.colors = {
+                    dome: '#3388ff',   // Blue
+                    bullet: '#50c754', // Green
+                    fisheye: '#f53337' // Red
+                };
+
+                // Undo/Redo
+                this.history = [];
+                this.historyStep = -1;
+                
+                this.pixelsPerMeter = 20; 
+                this.scale = 1;
+                this.offsetX = 0;
+                this.offsetY = 0;
+
+                // Mouse
+                this.dragId = null;
+                this.isPanning = false;
+                this.dragStart = {x:0, y:0};
+                this.didDrag = false;
+                this.hoverId = null;
+
+                // Calibration
+                this.isCalib = false;
+                this.calibPts = [];
+
+                this.setup();
+            }
+
+            setup() {
+                window.addEventListener('resize', () => this.resize());
+                this.resize();
+                document.getElementById('imageInput').onchange = e => this.handleImage(e);
+                document.getElementById('configInput').onchange = e => this.handleConfig(e);
+
+                this.canvas.addEventListener('mousedown', e => this.onDown(e));
+                this.canvas.addEventListener('mousemove', e => this.onMove(e));
+                window.addEventListener('mouseup', e => this.onUp(e));
+                this.canvas.addEventListener('wheel', e => this.onWheel(e), {passive:false});
+                this.canvas.addEventListener('contextmenu', e => e.preventDefault());
+                window.addEventListener('keydown', e => this.onKey(e));
+
+                this.loop();
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                this.draw();
+            }
+
+            // Drawing
+
+            loop() {
+                requestAnimationFrame(() => this.loop());
+                this.draw();
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                ctx.save();
+                ctx.translate(this.offsetX, this.offsetY);
+                ctx.scale(this.scale, this.scale);
+
+                if (this.image) ctx.drawImage(this.image, 0, 0);
+
+                this.cameras.forEach(c => this.drawFOV(ctx, c));
+                this.cameras.forEach(c => this.drawIcon(ctx, c));
+
+                if (this.isCalib && this.calibPts.length > 0) {
+                    ctx.strokeStyle = '#ff3b30';
+                    ctx.lineWidth = 2/this.scale;
+                    ctx.beginPath();
+                    ctx.moveTo(this.calibPts[0].x, this.calibPts[0].y);
+                    this.calibPts.forEach(p => ctx.lineTo(p.x, p.y));
+                    ctx.stroke();
+                    this.calibPts.forEach(p => {
+                        ctx.beginPath(); ctx.arc(p.x, p.y, 4/this.scale, 0, Math.PI*2); 
+                        ctx.fillStyle='#ff3b30'; ctx.fill();
+                    });
+                }
+                ctx.restore();
+            }
+
+            drawFOV(ctx, c) {
+                const sel = c.id === this.selectedId;
+                ctx.save();
+                ctx.translate(c.x, c.y);
+                ctx.rotate((c.angle - 90) * Math.PI/180);
+
+                const r = c.range * this.pixelsPerMeter;
+                const half = (c.fov/2) * Math.PI/180;
+
+                ctx.beginPath();
+                ctx.moveTo(0,0);
+                ctx.arc(0,0, r, -half, half);
+                ctx.closePath();
+                
+                const hex = this.colors[c.type] || '#007aff';
+                const strokeColor = sel ? '#8e8e93' : hex;
+                
+                ctx.fillStyle = this.hexToRgba(hex, 0.2);
+                ctx.fill();
+
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = (sel ? 2.5 : 1) / this.scale;
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+
+            drawIcon(ctx, c) {
+                const sel = c.id === this.selectedId;
+                const s = 6 / this.scale; 
+
+                ctx.save();
+                ctx.translate(c.x, c.y);
+                ctx.rotate((c.angle - 90) * Math.PI/180);
+
+                ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                ctx.shadowBlur = 5;
+
+                ctx.fillStyle = this.colors[c.type] || '#fff';
+                ctx.strokeStyle = sel ? '#8e8e93' : '#333'; 
+                ctx.lineWidth = (sel ? 2 : 1.5)/this.scale;
+
+                if (c.type === 'fisheye') {
+                    ctx.beginPath(); ctx.arc(0,0, s, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(0,0, s*0.4, 0, Math.PI*2); ctx.fillStyle='#333'; ctx.fill();
+                } else if (c.type === 'bullet') {
+                    ctx.shadowBlur = 0;
+                    ctx.beginPath(); ctx.rect(-s/1.5, -s, s*1.3, s*2); ctx.fill(); ctx.stroke();
+                    ctx.fillStyle = '#333'; ctx.fillRect(-s/1.5, s, s*1.3, s*0.3);
+                } else {
+                    ctx.beginPath(); ctx.arc(0,0, s, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+                    ctx.shadowBlur = 0; ctx.fillStyle = '#333';
+                    ctx.beginPath(); ctx.moveTo(-s/2, s*0.5); ctx.lineTo(s/2, s*0.5); ctx.lineTo(0, s*1.5); ctx.fill();
+                }
+
+                ctx.restore();
+            }
+
+            hexToRgba(hex, alpha) {
+                let r = 0, g = 0, b = 0;
+                if(hex.length == 4){
+                    r = parseInt(hex[1]+hex[1],16);
+                    g = parseInt(hex[2]+hex[2],16);
+                    b = parseInt(hex[3]+hex[3],16);
+                } else if (hex.length == 7){
+                    r = parseInt(hex.substr(1,2),16);
+                    g = parseInt(hex.substr(3,2),16);
+                    b = parseInt(hex.substr(5,2),16);
+                }
+                return `rgba(${r},${g},${b},${alpha})`;
+            }
+
+            // --- Logic ---
+
+            toWorld(x, y) {
+                return { x: (x - this.offsetX)/this.scale, y: (y - this.offsetY)/this.scale };
+            }
+
+            addCamera(tpl=null) {
+                const c = this.toWorld(this.canvas.width/2, this.canvas.height/2);
+                const type = tpl ? tpl.type : 'dome';
+                
+                const newCam = {
+                    id: Date.now(),
+                    name: tpl ? tpl.name+' Copy' : `Camera ${this.cameras.length+1}`,
+                    type: type,
+                    x: tpl ? tpl.x+20 : c.x,
+                    y: tpl ? tpl.y+20 : c.y,
+                    angle: tpl ? tpl.angle : 0,
+                    fov: tpl ? tpl.fov : 90,
+                    range: tpl ? tpl.range : 15
+                };
+                this.cameras.push(newCam);
+                this.selectCamera(newCam.id);
+                this.saveState();
+            }
+
+            // Renaming Logic
+            updateName(val) {
+                if(!this.selectedId) return;
+                const c = this.cameras.find(x=>x.id === this.selectedId);
+                if(c) {
+                    c.name = val;
+                    // Update input in list without re-rendering everything (prevents focus loss)
+                    const el = document.querySelector(`#cam-li-${c.id} input`);
+                    if(el && el.value !== val) el.value = val;
+                }
+            }
+
+            updateProp(key, val, isSlider) {
+                if(!this.selectedId) return;
+                const c = this.cameras.find(x=>x.id === this.selectedId);
+                if(!c) return;
+
+                let num = parseFloat(val);
+
+                if(key === 'type') {
+                    c.type = val;
+                    // Color is handled by renderer based on type now
+                } else {
+                    if (isSlider && key === 'angle') {
+                        if (Math.abs(num - 90) < 5) num = 90;
+                        else if (Math.abs(num - 180) < 5) num = 180;
+                        else if (Math.abs(num - 270) < 5) num = 270;
+                        else if (Math.abs(num - 0) < 5 || Math.abs(num-360) < 5) num = 0;
+                        else if (Math.abs(num - 45) < 3) num = 45;
+                    }
+                    c[key] = num;
+                }
+
+                this.updateProps(isSlider);
+                this.updateList(true); // Soft update list to change dot color if type changed
+            }
+
+            updateProps(skipNumberInput = false) {
+                const p = document.getElementById('properties');
+                const c = this.cameras.find(x=>x.id === this.selectedId);
+                if(!c) { p.style.display = 'none'; return; }
+                p.style.display = 'flex';
+
+                document.getElementById('inp-name').value = c.name;
+                document.getElementById('inp-type').value = c.type;
+                
+                ['angle','fov','range'].forEach(k => {
+                    document.getElementById('rng-'+k).value = c[k];
+                    if(!skipNumberInput) document.getElementById('num-'+k).value = c[k];
+                });
+            }
+
+            updateList(soft = false) {
+                const list = document.getElementById('camera-list');
+                
+                // If soft update (type change), just update colors, don't break input focus
+                if(soft) {
+                    this.cameras.forEach(c => {
+                        const dot = document.querySelector(`#cam-li-${c.id} .cam-dot`);
+                        if(dot) dot.style.background = this.colors[c.type];
+                    });
+                    return;
+                }
+
+                list.innerHTML = '';
+                this.cameras.forEach(c => {
+                    const div = document.createElement('div');
+                    div.id = `cam-li-${c.id}`;
+                    div.className = `cam-item ${c.id===this.selectedId?'selected':''}`;
+                    div.onclick = () => this.selectCamera(c.id);
+                    
+                    // Dot
+                    const dot = document.createElement('div');
+                    dot.className = 'cam-dot';
+                    dot.style.background = this.colors[c.type];
+
+                    // Input
+                    const inp = document.createElement('input');
+                    inp.type = 'text';
+                    inp.className = 'cam-name-input';
+                    inp.value = c.name;
+                    // Stop click propagation so we can type without re-selecting/dragging
+                    inp.onclick = (e) => e.stopPropagation();
+                    inp.onmousedown = (e) => e.stopPropagation(); 
+                    inp.oninput = (e) => {
+                        this.updateName(e.target.value);
+                        this.updateProps(true); // Sync properties panel
+                    };
+                    inp.onchange = () => this.saveState();
+
+                    div.appendChild(dot);
+                    div.appendChild(inp);
+                    list.appendChild(div);
+                });
+            }
+
+            selectCamera(id) {
+                this.selectedId = id;
+                this.updateList();
+                this.updateProps();
+            }
+
+            removeSelectedCamera() {
+                if(!this.selectedId) return;
+                this.cameras = this.cameras.filter(c=>c.id!==this.selectedId);
+                this.selectCamera(null);
+                this.saveState();
+            }
+
+            copyCamera() {
+                if(!this.selectedId) return;
+                const c = this.cameras.find(x=>x.id===this.selectedId);
+                this.clipboard = {...c};
+                this.showToast("Copied");
+            }
+
+            // --- Interactions ---
+
+            getHit(x, y) {
+                return this.cameras.slice().reverse().find(c => {
+                    const dist = Math.sqrt((c.x-x)**2 + (c.y-y)**2);
+                    return dist < (15/this.scale);
+                });
+            }
+
+            onDown(e) {
+                if(e.target.tagName === 'INPUT') return; // Don't drag if clicking input
+                
+                const w = this.toWorld(e.clientX, e.clientY);
+                this.didDrag = false;
+
+                if (this.isCalib) {
+                    this.calibPts.push(w);
+                    if(this.calibPts.length===2) this.finishCalib();
+                    return;
+                }
+
+                const hit = this.getHit(w.x, w.y);
+
+                if (e.button===1 || (e.button===0 && e.code==='Space')) {
+                    this.isPanning = true;
+                    this.dragStart = {x:e.clientX, y:e.clientY};
+                    this.canvas.style.cursor = 'grabbing';
+                    return;
+                }
+
+                if (hit) {
+                    this.selectCamera(hit.id);
+                    this.dragId = hit.id;
+                    this.canvas.style.cursor = 'move';
+                } else {
+                    this.selectCamera(null);
+                    this.isPanning = true;
+                    this.dragStart = {x:e.clientX, y:e.clientY};
+                    this.canvas.style.cursor = 'grabbing';
+                }
+            }
+
+            onMove(e) {
+                const w = this.toWorld(e.clientX, e.clientY);
+
+                if (!this.dragId && !this.isPanning && !this.isCalib) {
+                    const hit = this.getHit(w.x, w.y);
+                    if (hit) {
+                        this.canvas.style.cursor = 'grab';
+                        this.hoverId = hit.id;
+                    } else if (this.hoverId) {
+                        this.canvas.style.cursor = 'default';
+                        this.hoverId = null;
+                    }
+                }
+
+                if (this.isPanning) {
+                    this.offsetX += e.clientX - this.dragStart.x;
+                    this.offsetY += e.clientY - this.dragStart.y;
+                    this.dragStart = {x:e.clientX, y:e.clientY};
+                    this.didDrag = true;
+                } else if (this.dragId) {
+                    const c = this.cameras.find(x=>x.id===this.dragId);
+                    if(c) { c.x = w.x; c.y = w.y; this.didDrag = true; }
+                }
+            }
+
+            onUp() {
+                if (this.dragId && this.didDrag) this.saveState();
+                this.isPanning = false;
+                this.dragId = null;
+                this.canvas.style.cursor = 'default';
+            }
+
+            onWheel(e) {
+                e.preventDefault();
+                const f = e.deltaY > 0 ? 0.9 : 1.1;
+                const mx = e.clientX - this.offsetX;
+                const my = e.clientY - this.offsetY;
+                const ns = Math.min(Math.max(0.05, this.scale * f), 10);
+                this.offsetX -= mx * (ns/this.scale - 1);
+                this.offsetY -= my * (ns/this.scale - 1);
+                this.scale = ns;
+            }
+
+            onKey(e) {
+                if (e.target.tagName === 'INPUT') return;
+                const cmd = e.metaKey || e.ctrlKey;
+                if (cmd && e.key === 'z') {
+                    e.shiftKey ? this.redo() : this.undo();
+                    e.preventDefault();
+                }
+                if (cmd && e.key === 'c') this.copyCamera();
+                if (cmd && e.key === 'v') {
+                    if(this.clipboard) this.addCamera(this.clipboard);
+                }
+                if (e.key === 'Delete' || e.key === 'Backspace') this.removeSelectedCamera();
+            }
+
+            // --- Save/Load & System ---
+
+            saveState() {
+                if (this.historyStep < this.history.length - 1) {
+                    this.history = this.history.slice(0, this.historyStep + 1);
+                }
+                const state = JSON.stringify({
+                    cameras: this.cameras,
+                    ppm: this.pixelsPerMeter,
+                    mapName: this.mapName
+                });
+                
+                if (this.history.length > 0 && this.history[this.history.length-1] === state) return;
+
+                this.history.push(state);
+                this.historyStep++;
+                
+                if (this.history.length > 50) {
+                    this.history.shift();
+                    this.historyStep--;
+                }
+                this.updateUndoUI();
+            }
+
+            undo() {
+                if (this.historyStep > 0) {
+                    this.historyStep--;
+                    this.restoreState();
+                    this.showToast("Undo");
+                }
+            }
+
+            redo() {
+                if (this.historyStep < this.history.length - 1) {
+                    this.historyStep++;
+                    this.restoreState();
+                    this.showToast("Redo");
+                }
+            }
+
+            restoreState() {
+                const data = JSON.parse(this.history[this.historyStep]);
+                this.cameras = data.cameras;
+                this.pixelsPerMeter = data.ppm;
+                if(data.mapName) this.mapName = data.mapName;
+                this.updateList();
+                this.updateProps();
+                this.updateUndoUI();
+            }
+
+            updateUndoUI() {
+                const row = document.getElementById('undo-redo-row');
+                if (!row) return; // UI removed; nothing to show
+                const hr = document.getElementById('undo-hr');
+                const btnUndo = document.getElementById('btn-undo');
+                const btnRedo = document.getElementById('btn-redo');
+
+                const canUndo = this.historyStep > 0;
+                const canRedo = this.historyStep < this.history.length - 1;
+
+                if (!canUndo && !canRedo) {
+                    row.classList.add('hidden');
+                    hr.classList.add('hidden');
+                } else {
+                    row.classList.remove('hidden');
+                    hr.classList.remove('hidden');
+                    btnUndo.disabled = !canUndo;
+                    btnRedo.disabled = !canRedo;
+                    btnUndo.style.opacity = canUndo ? 1 : 0.4;
+                    btnRedo.style.opacity = canRedo ? 1 : 0.4;
+                }
+            }
+
+            enableCameraPanel() {
+                document.getElementById('panel-right').style.display = 'flex';
+            }
+
+            handleImage(e) {
+                const f = e.target.files[0];
+                if(!f) return;
+                this.mapName = f.name.split('.').slice(0, -1).join('.');
+                const r = new FileReader();
+                r.onload = ev => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.image = img;
+                        const sx = this.canvas.width/img.width;
+                        const sy = this.canvas.height/img.height;
+                        this.scale = Math.min(sx,sy)*0.9;
+                        this.offsetX = (this.canvas.width - img.width*this.scale)/2;
+                        this.offsetY = (this.canvas.height - img.height*this.scale)/2;
+                        this.showToast("Map Loaded");
+                        this.enableCameraPanel();
+                        this.saveState();
+                    };
+                    img.src = ev.target.result;
+                };
+                r.readAsDataURL(f);
+            }
+
+            handleConfig(e) {
+                const f = e.target.files[0];
+                if(!f) return;
+                const r = new FileReader();
+                r.onload = ev => {
+                    try {
+                        const d = JSON.parse(ev.target.result);
+                        this.cameras = d.cameras || [];
+                        this.pixelsPerMeter = d.ppm || this.pixelsPerMeter;
+                        if(d.mapName) this.mapName = d.mapName;
+                        if(this.cameras.length > 0) this.enableCameraPanel();
+                        this.updateList();
+                        this.updateProps();
+                        this.draw();
+                        this.saveState();
+                        this.showToast("Config Loaded");
+                    } catch(err) {
+                        console.error(err);
+                        this.showToast("Invalid Config");
+                    }
+                };
+                r.readAsText(f);
+            }
+
+            startCalibration() {
+                if(!this.image) return this.showToast("Import map first");
+                this.isCalib = true;
+                this.calibPts = [];
+                this.showToast("Click Point A then Point B");
+                document.getElementById('btn-calibrate').innerText = "Cancel";
+                document.getElementById('btn-calibrate').onclick = () => {
+                    this.isCalib = false;
+                    this.calibPts = [];
+                    document.getElementById('btn-calibrate').innerText = "Set Scale";
+                    document.getElementById('btn-calibrate').onclick = () => this.startCalibration();
+                };
+            }
+
+            finishCalib() {
+                const p1 = this.calibPts[0];
+                const p2 = this.calibPts[1];
+                const pd = Math.sqrt((p2.x-p1.x)**2 + (p2.y-p1.y)**2);
+                const m = prompt("Distance in meters:", "10");
+                if(m && !isNaN(m)) {
+                    this.pixelsPerMeter = pd / parseFloat(m);
+                    this.saveState();
+                    this.showToast(`Scale: 1m = ${this.pixelsPerMeter.toFixed(1)}px`);
+                }
+                document.getElementById('btn-calibrate').click();
+            }
+
+            saveProgress() {
+                const data = { cameras: this.cameras, ppm: this.pixelsPerMeter, mapName: this.mapName };
+                localStorage.setItem('site_plan_autosave', JSON.stringify(data));
+                this.showToast("Saved");
+            }
+
+            loadProgress() {
+                // Load via file instead of browser memory
+                document.getElementById('configInput').click();
+            }
+
+            exportConfig() {
+                const data = { cameras: this.cameras, ppm: this.pixelsPerMeter, mapName: this.mapName };
+                const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = (this.mapName || "site-plan") + ".json";
+                a.click();
+                this.showToast("Config Exported");
+            }
+
+            showToast(msg) {
+                const el = document.getElementById('status-bar');
+                el.innerText = msg;
+                el.style.opacity = 1;
+                setTimeout(()=>el.style.opacity=0, 2000);
+            }
+        }
+
+        const app = new App();
+    </script>
+</body>
+</html>
