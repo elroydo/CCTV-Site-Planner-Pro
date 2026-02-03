@@ -196,6 +196,10 @@
             <button class="full-width" onclick="document.getElementById('configInput').click()">Load</button>
         </div>
         <button class="full-width" style="margin-top:8px" onclick="app.exportConfig()">Export Config</button>
+        <div class="row" style="margin-top:8px;">
+            <button class="full-width" onclick="app.exportImage('png')">Export as PNG</button>
+            <button class="full-width" onclick="app.exportImage('jpg')">Export as JPG</button>
+        </div>
     </div>
 
     <div class="panel panel-right" id="panel-right">
@@ -389,7 +393,7 @@
 
                 ctx.save();
                 ctx.translate(c.x, c.y);
-                ctx.rotate((c.angle - 90) * Math.PI/180);
+                ctx.rotate((c.angle - 180) * Math.PI/180);
 
                 ctx.shadowColor = 'rgba(0,0,0,0.3)';
                 ctx.shadowBlur = 5;
@@ -449,6 +453,7 @@
                     range: tpl ? tpl.range : 15
                 };
                 this.cameras.push(newCam);
+                this.updateList();
                 this.selectCamera(newCam.id);
                 this.saveState();
             }
@@ -459,7 +464,6 @@
                 const c = this.cameras.find(x=>x.id === this.selectedId);
                 if(c) {
                     c.name = val;
-                    // Update input in list without re-rendering everything (prevents focus loss)
                     const el = document.querySelector(`#cam-li-${c.id} input`);
                     if(el && el.value !== val) el.value = val;
                 }
@@ -474,20 +478,20 @@
 
                 if(key === 'type') {
                     c.type = val;
-                    // Color is handled by renderer based on type now
                 } else {
                     if (isSlider && key === 'angle') {
                         if (Math.abs(num - 90) < 5) num = 90;
                         else if (Math.abs(num - 180) < 5) num = 180;
                         else if (Math.abs(num - 270) < 5) num = 270;
-                        else if (Math.abs(num - 0) < 5 || Math.abs(num-360) < 5) num = 0;
+                        else if (Math.abs(num - 360) < 5) num = 360;
+                        else if (Math.abs(num - 0) < 5) num = 0;
                         else if (Math.abs(num - 45) < 3) num = 45;
                     }
                     c[key] = num;
                 }
 
-                this.updateProps(isSlider);
-                this.updateList(true); // Soft update list to change dot color if type changed
+                this.updateProps(false);
+                this.updateList(true);
             }
 
             updateProps(skipNumberInput = false) {
@@ -508,7 +512,6 @@
             updateList(soft = false) {
                 const list = document.getElementById('camera-list');
                 
-                // If soft update (type change), just update colors, don't break input focus
                 if(soft) {
                     this.cameras.forEach(c => {
                         const dot = document.querySelector(`#cam-li-${c.id} .cam-dot`);
@@ -534,12 +537,10 @@
                     inp.type = 'text';
                     inp.className = 'cam-name-input';
                     inp.value = c.name;
-                    // Stop click propagation so we can type without re-selecting/dragging
-                    inp.onclick = (e) => e.stopPropagation();
-                    inp.onmousedown = (e) => e.stopPropagation(); 
+                    inp.onfocus = (e) => { this.selectCamera(c.id); e.stopPropagation(); };
                     inp.oninput = (e) => {
                         this.updateName(e.target.value);
-                        this.updateProps(true); // Sync properties panel
+                        this.updateProps(true);
                     };
                     inp.onchange = () => this.saveState();
 
@@ -551,7 +552,15 @@
 
             selectCamera(id) {
                 this.selectedId = id;
-                this.updateList();
+                const list = document.getElementById('camera-list');
+                if (list) {
+                    const target = id ? `cam-li-${id}` : null;
+                    Array.from(list.children).forEach(div => {
+                        div.classList.toggle('selected', div.id === target);
+                    });
+                } else {
+                    this.updateList();
+                }
                 this.updateProps();
             }
 
@@ -579,7 +588,7 @@
             }
 
             onDown(e) {
-                if(e.target.tagName === 'INPUT') return; // Don't drag if clicking input
+                if(e.target.tagName === 'INPUT') return;
                 
                 const w = this.toWorld(e.clientX, e.clientY);
                 this.didDrag = false;
@@ -720,7 +729,7 @@
 
             updateUndoUI() {
                 const row = document.getElementById('undo-redo-row');
-                if (!row) return; // UI removed; nothing to show
+                if (!row) return;
                 const hr = document.getElementById('undo-hr');
                 const btnUndo = document.getElementById('btn-undo');
                 const btnRedo = document.getElementById('btn-redo');
@@ -826,7 +835,6 @@
             }
 
             loadProgress() {
-                // Load via file instead of browser memory
                 document.getElementById('configInput').click();
             }
 
@@ -838,6 +846,18 @@
                 a.download = (this.mapName || "site-plan") + ".json";
                 a.click();
                 this.showToast("Config Exported");
+            }
+
+            exportImage(format = 'png') {
+                const mime = (format === 'jpg' || format === 'jpeg') ? 'image/jpeg' : 'image/png';
+                const ext = (format === 'jpg' || format === 'jpeg') ? 'jpg' : 'png';
+                this.draw();
+                const data = this.canvas.toDataURL(mime, 0.92);
+                const a = document.createElement('a');
+                a.href = data;
+                a.download = (this.mapName || 'site-plan') + `.${ext}`;
+                a.click();
+                this.showToast(`Image exported (${ext.toUpperCase()})`);
             }
 
             showToast(msg) {
