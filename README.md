@@ -14,9 +14,8 @@ A lightweight, browser-based tool for planning CCTV camera placement on real sit
 This tool was built to make CCTV planning faster, clearer, and less abstract.
 If you can see the site, you can design the coverage.
 
-## How to use
-Hosted via GitHub Pages.  
-Open in a desktop browser for best results.
+## Live Demo
+https://elroydo.github.io/CCTV-Site-Planner-Pro/
 
 ## Tech
 - Plain HTML, CSS, and JavaScript
